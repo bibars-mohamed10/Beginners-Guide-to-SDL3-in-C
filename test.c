@@ -99,6 +99,7 @@ void print_snake(struct SnakeElement **ppsnake)
         printf("Snake self: %p\n", psnake);
         printf("Snake next: %p\n", psnake->pnext);
         psnake = psnake->pnext;
+        counter++;
     }
 }
 
@@ -107,6 +108,9 @@ void move_snake(struct SnakeElement **ppsnake, struct Direction *pdirection)
 {
     assert(ppsnake != NULL);
     assert(*ppsnake != NULL);
+
+    if(pdirection->dx == 0 && pdirection->dy == 0)
+        return;
 
     size_t size = snake_size(ppsnake);
     if (size == 1)
@@ -125,9 +129,14 @@ void move_snake(struct SnakeElement **ppsnake, struct Direction *pdirection)
         while (pcurrent->pnext != NULL)
         {
             pcurrent = pcurrent->pnext;
+            int temp_x = pcurrent->x;
+            int temp_y = pcurrent->y;
 
             pcurrent->x = previous_x;
             pcurrent->y = previous_y;
+
+            previous_x = temp_x;
+            previous_y = temp_y;
         }
     }
 }
@@ -205,7 +214,7 @@ int main ()
             }
         }
         
-        print_snake(ppsnake);
+        // print_snake(ppsnake);
 
         SDL_FillSurfaceRect(psurface, &override_rect, COLOR_BLACK);
 
