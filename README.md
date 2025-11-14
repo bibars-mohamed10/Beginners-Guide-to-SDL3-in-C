@@ -44,3 +44,4 @@ Space - Changes background Color\
 Arrows - Moves sprite\
 M - Toggles music mute\
 Escape - Quits
+# Snake-Game-Project
