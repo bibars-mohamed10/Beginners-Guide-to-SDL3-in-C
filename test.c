@@ -162,10 +162,36 @@ void reset_apple(struct SnakeElement *psnake, struct Apple *papple)
     while(pcurrent != NULL);
 }
 
-void lengthen_snake(struct SnakeElement *psnake)
+void lengthen_snake(struct SnakeElement **ppsnake, struct Direction *pdirection)
 {
-
+    struct SnakeElement *head = malloc(sizeof(struct SnakeElement));
+    head->x = (*ppsnake)->x + pdirection->dx;
+    head->y = (*ppsnake)->y + pdirection->dy;
+    head->pnext = *ppsnake;
+    
+    *ppsnake = head;
 }   
+
+int check_collision(struct SnakeElement **ppsnake)
+{
+    assert(ppsnake != NULL);
+    assert(*ppsnake != NULL);
+
+    /* Check wall collision */
+    struct SnakeElement snake = **ppsnake;
+    if(snake.x < 0 || snake.y < 0 || snake.x > COLUMNS || snake.y > ROWS)
+        return 1;
+
+    /* Check self collision */
+    struct SnakeElement *psnake = *ppsnake;
+    while (psnake->pnext != NULL)
+    {
+        psnake = psnake->pnext;
+        if(snake.x == psnake->x && snake.y == psnake->y)
+            return 1;
+    }
+    return 0;
+}
 
 int main ()
 {
@@ -176,12 +202,23 @@ int main ()
     
     SDL_Event event;
 
-    struct SnakeElement snake = {5,5,NULL}; 
-    struct SnakeElement snakeTail = {5,6,NULL}; 
-    struct SnakeElement snakeTail2 = {5,7,NULL}; 
-    snake.pnext = &snakeTail;
-    snakeTail.pnext = &snakeTail2;
-    struct SnakeElement *psnake = &snake; 
+    struct SnakeElement *psnake = malloc(sizeof(struct SnakeElement));
+    struct SnakeElement *psnakeTail = malloc(sizeof(struct SnakeElement));
+    struct SnakeElement *psnakeTail2 = malloc(sizeof(struct SnakeElement));
+
+    psnake->x = 5;
+    psnake->y = 5;
+    psnake->pnext = psnakeTail;
+
+    psnakeTail->x = 5;
+    psnakeTail->y = 6;
+    psnakeTail->pnext = psnakeTail2;
+
+    psnakeTail2->x = 5;
+    psnakeTail2->y = 7;
+    psnakeTail2->pnext = NULL;
+
+
     struct SnakeElement **ppsnake = &psnake; 
     struct Direction direction = {0,0};
     struct Direction *pdirection = &direction;
@@ -214,16 +251,31 @@ int main ()
             }
         }
         
-        // print_snake(ppsnake);
-
+        /* print_snake(ppsnake); */
+        
         SDL_FillSurfaceRect(psurface, &override_rect, COLOR_BLACK);
-
+        
         move_snake(ppsnake, pdirection);
+        if(check_collision(ppsnake))
+        {
+            printf("Collision! Game Over!\n");
+            /* Free Memory */
+            struct SnakeElement *pcurrent = *ppsnake;
+            struct SnakeElement *pnext;
+            while(pcurrent->pnext != NULL)
+            {
+                pnext = pcurrent->pnext;
+                free(pcurrent);
+                pcurrent = pnext;
+            }
+            free(pnext);
+            game = 0;
+        }
 
         if (psnake->x == papple->x && psnake->y == papple->y)
         {
             reset_apple(psnake, papple);
-            // lengthen_snake(psnake);
+            lengthen_snake(ppsnake, pdirection);
         }
 
         APPLE(papple->x, papple->y);
@@ -231,7 +283,7 @@ int main ()
         DRAW_GRID;
 
         SDL_UpdateWindowSurface(window);
-        SDL_Delay(300);
+        SDL_Delay(200);
         
     }
 }
