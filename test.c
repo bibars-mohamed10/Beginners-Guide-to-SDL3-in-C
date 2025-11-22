@@ -39,6 +39,52 @@ struct Apple
     int x,y;
 };
 
+int choose_game_mode()
+{
+    int mode = 0;
+
+    printf("Choose Game Mode:\n");
+    printf("1. Single Player\n");
+    printf("2. Two Player\n");
+    printf("Enter choice (1 or 2): ");
+
+    scanf("%d", &mode);
+
+    if(mode != 1 && mode != 2)
+    {
+        printf("Invalid choice! Single Player (Default)");
+        mode = 1;
+    }
+
+    return mode;
+}
+
+int load_high_score(const char *filename)
+{
+    FILE *fp = fopen(filename, "r");
+    if (fp == NULL)
+        return 0; /* high score = 0 */
+
+    int score = 0;
+    fscanf(fp, "%d", &score);
+    fclose(fp);
+
+    return score;
+}
+
+void save_high_score(const char *filename, int score)
+{
+    FILE *fp = fopen(filename, "w");
+    if (fp == NULL)
+    {
+        printf("Error opening file for writing!\n");
+        return;
+    }
+
+    fprintf(fp, "%d", score);
+    fclose(fp);
+}
+
 int draw_grid(SDL_Surface *psurface)
 {
     SDL_Rect row_line = {0,0,900,LINE_WIDTH};
@@ -48,7 +94,7 @@ int draw_grid(SDL_Surface *psurface)
     SDL_Rect col_line = {0,0,LINE_WIDTH,HEIGHT};
     for(col_line.y = 0, col_line.x = 0; col_line.x < WIDTH; col_line.x += CELL_SIZE)
         SDL_FillSurfaceRect(psurface, &col_line, COLOR_GRID);
-        
+    return 0;
 }
 
 void fill_cell(SDL_Surface *psurface, int x, int y, Uint32 color)
@@ -179,7 +225,7 @@ int check_collision(struct SnakeElement **ppsnake)
 
     /* Check wall collision */
     struct SnakeElement snake = **ppsnake;
-    if(snake.x < 0 || snake.y < 0 || snake.x > COLUMNS || snake.y > ROWS)
+    if(snake.x < 0 || snake.y < 0 || snake.x >= COLUMNS || snake.y >= ROWS)
         return 1;
 
     /* Check self collision */
@@ -193,8 +239,37 @@ int check_collision(struct SnakeElement **ppsnake)
     return 0;
 }
 
+int snake_collides_with(struct SnakeElement *head, struct SnakeElement *other)
+{
+    while(other != NULL)
+    {
+        if (head->x == other->x && head->y == other->y)
+            return 1; /* Collision detected */
+        
+        other = other->pnext;
+    }
+    return 0; /* No collision */
+
+}
+
+void free_snake(struct SnakeElement **ppsnake)
+{
+    struct SnakeElement *pcurrent = *ppsnake;
+    struct SnakeElement *pnext;
+
+    while(pcurrent != NULL)
+    {
+        pnext = pcurrent->pnext;
+        free(pcurrent);
+        pcurrent = pnext;
+    }
+    *ppsnake = NULL;
+}
+
 int main ()
 {
+    int mode = choose_game_mode(); /* 1 or 2 players */
+
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Window *window = SDL_CreateWindow("Snake Game", WIDTH, HEIGHT, 0);
 
@@ -205,6 +280,8 @@ int main ()
     struct SnakeElement *psnake = malloc(sizeof(struct SnakeElement));
     struct SnakeElement *psnakeTail = malloc(sizeof(struct SnakeElement));
     struct SnakeElement *psnakeTail2 = malloc(sizeof(struct SnakeElement));
+
+
 
     psnake->x = 5;
     psnake->y = 5;
@@ -218,10 +295,38 @@ int main ()
     psnakeTail2->y = 7;
     psnakeTail2->pnext = NULL;
 
+    
 
     struct SnakeElement **ppsnake = &psnake; 
     struct Direction direction = {0,0};
     struct Direction *pdirection = &direction;
+    
+    /* For 2nd player in future */
+    struct SnakeElement *psnake2 = NULL; 
+    struct SnakeElement **ppsnake2 = &psnake2;
+    struct Direction direction2 = {0,0};
+    struct Direction *pdirection2 = &direction2;
+    if (mode == 2)
+    {
+        psnake2 = malloc(sizeof(struct SnakeElement));
+        struct SnakeElement *psnake2Tail = malloc(sizeof(struct SnakeElement));
+        struct SnakeElement *psnake2Tail2 = malloc(sizeof(struct SnakeElement));
+
+        psnake2->x = 20;
+        psnake2->y = 10;
+        psnake2->pnext = psnake2Tail;
+
+        psnake2Tail->x = 20;
+        psnake2Tail->y = 11;
+        psnake2Tail->pnext = psnake2Tail2;
+
+        psnake2Tail2->x = 20;
+        psnake2Tail2->y = 12;
+        psnake2Tail2->pnext = NULL;
+
+        direction2.dx = -1;   /* Start moving left */
+        direction2.dy = 0;
+    }
     struct Apple apple;
     struct Apple *papple = &apple;
     reset_apple(psnake, papple);
@@ -230,6 +335,11 @@ int main ()
     SDL_Rect override_rect = {0,0,WIDTH,HEIGHT};
 
     int game = 1;
+    int score = 0;
+    int high_score = load_high_score("score.txt");
+
+    direction.dx = 1;   /* Start moving right */
+    direction.dy = 0;
     while(game)
     {
 
@@ -238,16 +348,20 @@ int main ()
             if (event.type == SDL_EVENT_QUIT)
                 game = 0;
             if (event.type == SDL_EVENT_KEY_DOWN)
-            {
-                direction = (struct Direction) {0,0};
-                if (event.key.key == SDLK_RIGHT)
-                    direction.dx = 1;
-                if (event.key.key == SDLK_LEFT)
-                    direction.dx = -1;
-                if (event.key.key == SDLK_UP)
-                    direction.dy = -1;
-                if (event.key.key == SDLK_DOWN)
-                    direction.dy = 1;
+            {   /* Player 1 Controls (Arrows) */
+                if (event.key.key == SDLK_RIGHT && direction.dx != -1) {direction.dx = 1; direction.dy = 0;}
+                if (event.key.key == SDLK_LEFT && direction.dx != 1) {direction.dx = -1; direction.dy = 0;}
+                if (event.key.key == SDLK_UP && direction.dy != 1) {direction.dy = -1; direction.dx = 0;}
+                if (event.key.key == SDLK_DOWN && direction.dy != -1) {direction.dy = 1; direction.dx = 0;}
+
+                /* Player 2 Controls (WASD) */
+                if (mode == 2)
+                {
+                    if (event.key.key == SDLK_D && direction2.dx != -1) {direction2.dx = 1; direction2.dy = 0;}
+                    if (event.key.key == SDLK_A && direction2.dx != 1) {direction2.dx = -1; direction2.dy = 0;}
+                    if (event.key.key == SDLK_W && direction2.dy != 1) {direction2.dy = -1; direction2.dx = 0;}
+                    if (event.key.key == SDLK_S && direction2.dy != -1) {direction2.dy = 1; direction2.dx = 0;}
+                }
             }
         }
         
@@ -256,34 +370,66 @@ int main ()
         SDL_FillSurfaceRect(psurface, &override_rect, COLOR_BLACK);
         
         move_snake(ppsnake, pdirection);
+        if (mode == 2)
+            move_snake(ppsnake2, pdirection2);
+
+
         if(check_collision(ppsnake))
         {
             printf("Collision! Game Over!\n");
             /* Free Memory */
-            struct SnakeElement *pcurrent = *ppsnake;
-            struct SnakeElement *pnext;
-            while(pcurrent->pnext != NULL)
-            {
-                pnext = pcurrent->pnext;
-                free(pcurrent);
-                pcurrent = pnext;
-            }
-            free(pnext);
+            free_snake(ppsnake);
+            save_high_score("score.txt", high_score);
             game = 0;
         }
 
+        /* Player 1 eats apple */
         if (psnake->x == papple->x && psnake->y == papple->y)
         {
             reset_apple(psnake, papple);
             lengthen_snake(ppsnake, pdirection);
+            score++;
+
+            /* Updating high score */
+            if (score > high_score) high_score = score;
+        }
+
+        /* Player 2 eats apple */
+        if (mode == 2 && psnake2->x == papple->x && psnake2->y == papple->y)
+        {
+            reset_apple(psnake2, papple);
+            lengthen_snake(ppsnake2, pdirection2);
+        }
+
+        /* Player 1 hits Player 2 */
+        if (mode == 2 && snake_collides_with(psnake, psnake2))
+        {
+            printf("Player 1 crashed into Player 2!\n");
+            game = 0;
+        }
+
+        /* Player 2 hits Player 1*/
+        if (mode == 2 && snake_collides_with(psnake2, psnake))
+        {
+            printf("Player 2 crashed into Player 1!\n");
+            game = 0;
         }
 
         APPLE(papple->x, papple->y);
         draw_snake(psurface, ppsnake);
+        if (mode == 2)
+            draw_snake(psurface, ppsnake2);
         DRAW_GRID;
 
         SDL_UpdateWindowSurface(window);
         SDL_Delay(200);
-        
     }
+    save_high_score("score.txt", high_score);
+    free_snake(ppsnake);
+    if (mode == 2)
+        free_snake(ppsnake2);
+
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 0;
 }
