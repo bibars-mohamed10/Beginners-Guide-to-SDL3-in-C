@@ -1,10 +1,3 @@
-# Controls
-Space - Changes background Color\
-Arrows - Moves sprite\
-M - Toggles music mute\
-Escape - Quits
-# Snake-Game-Project
-
 ## Snake Game (SDL3) – Quick Reference
 
 - Single or two-player Snake built with SDL3. Grid uses `CELL_SIZE` over a `WIDTH x HEIGHT` window. Apples spawn off the snake; players grow by eating apples and lose on wall/self collisions.
